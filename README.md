@@ -285,3 +285,271 @@ Once your AWS **CodePipeline** is configured with **CodeCommit** as the source a
 
 
 ```
+
+
+ Below is the full reorganization of the **AWS CodePipeline with Terraform** project using **GitHub instead of CodeCommit** as the source.
+
+This setup:
+- Uses **GitHub as the source**
+- Triggers CodePipeline on each commit to GitHub
+- Runs **validation, security scans**, and **Terraform apply**
+- Uses **Terraform** to deploy all infrastructure (S3, IAM, ECR, CodeBuild, CodePipeline)
+
+---
+
+```markdown
+#  GitHub-Based AWS CodePipeline CI/CD for Terraform with Security Scanning
+
+Deploy secure and compliant Terraform code using:
+- GitHub as the source
+- AWS CodePipeline + CodeBuild
+- Terraform CLI
+- Security tools: TFLint, Checkov, TFSec
+
+---
+
+##  Project Overview
+
+**Stages:**
+
+1. Push `.tf` files to GitHub
+2. CodePipeline triggers
+3. CodeBuild stages:
+   - `terraform fmt` + `validate`
+   - `tflint`
+   - `checkov`
+   - `tfsec`
+   - `terraform plan`
+   - `manual approval` (optional)
+   - `terraform apply`
+
+---
+
+## 1️ Prerequisites
+
+- AWS CLI & Terraform installed
+- GitHub repository created
+- Docker installed for local builds (optional)
+
+---
+
+## 2️ Provision Infrastructure using Terraform
+
+### Structure:
+```
+.
+├── main.tf
+├── backend.tf
+├── variables.tf
+├── buildspec.yml
+├── terraform.tfvars
+```
+
+---
+
+### Example: `main.tf`
+
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_s3_bucket" "artifact_store" {
+  bucket = "my-terraform-artifact-store"
+  acl    = "private"
+}
+
+resource "aws_kms_key" "pipeline_key" {
+  description             = "KMS key for CodePipeline"
+  deletion_window_in_days = 10
+}
+
+resource "aws_codebuild_project" "terraform_build" {
+  name          = "TerraformBuild"
+  description   = "Build project for Terraform"
+  service_role  = aws_iam_role.codebuild_role.arn
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "buildspec.yml"
+  }
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/standard:6.0"
+    type                        = "LINUX_CONTAINER"
+    environment_variables = [
+      {
+        name  = "TF_VAR_env"
+        value = "prod"
+      }
+    ]
+  }
+}
+
+resource "aws_codepipeline" "terraform_pipeline" {
+  name     = "terraform-ci-pipeline"
+  role_arn = aws_iam_role.pipeline_role.arn
+
+  artifact_store {
+    location = aws_s3_bucket.artifact_store.bucket
+    type     = "S3"
+    encryption_key {
+      id   = aws_kms_key.pipeline_key.arn
+      type = "KMS"
+    }
+  }
+
+  stage {
+    name = "Source"
+    action {
+      name             = "SourceAction"
+      category         = "Source"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
+      version          = "1"
+      output_artifacts = ["SourceOutput"]
+      configuration = {
+        Owner      = "<github-user>"
+        Repo       = "<github-repo>"
+        Branch     = "main"
+        OAuthToken = var.github_token
+      }
+    }
+  }
+
+  stage {
+    name = "Build"
+    action {
+      name             = "TerraformBuild"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["SourceOutput"]
+      output_artifacts = ["BuildOutput"]
+      version          = "1"
+      configuration = {
+        ProjectName = aws_codebuild_project.terraform_build.name
+      }
+    }
+  }
+}
+```
+
+---
+
+### Example: `backend.tf`
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "terraform-state-bucket-123"
+    key            = "github-terraform/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
+}
+```
+
+---
+
+### Example: `variables.tf`
+
+```hcl
+variable "github_token" {
+  type        = string
+  description = "GitHub OAuth token"
+}
+```
+
+---
+
+### Example: `buildspec.yml`
+
+```yaml
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - pip install checkov tfsec tflint
+  pre_build:
+    commands:
+      - terraform fmt -check
+      - terraform validate
+      - tflint --init && tflint
+      - checkov -d .
+      - tfsec .
+  build:
+    commands:
+      - terraform init
+      - terraform plan -out=tfplan
+  post_build:
+    commands:
+      - terraform apply -auto-approve tfplan
+```
+
+---
+
+## 3️ Deploy Infrastructure
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+---
+
+## 4️ Push to GitHub
+
+Once your pipeline is deployed:
+
+```bash
+git add .
+git commit -m "Add S3 module"
+git push origin main
+```
+
+Your **CodePipeline** will automatically:
+- Pull source from GitHub
+- Run validation and security scans
+- Deploy your infrastructure
+
+---
+
+##  Security Built-In
+
+| Tool     | Description                                   |
+|----------|-----------------------------------------------|
+| TFLint   | Linter for Terraform                          |
+| Checkov  | Security + Compliance scanning                |
+| TFSec    | Detects Terraform misconfigurations           |
+
+---
+
+##  End-to-End CI/CD Workflow with GitHub
+
+1. Developer pushes `.tf` files to GitHub
+2. AWS CodePipeline pulls changes
+3. CodeBuild runs:
+   - Format, validate, security scans
+   - `terraform plan`
+   - Optional `manual approval`
+   - `terraform apply`
+
+---
+
+##  Summary
+
+You’ve now replaced CodeCommit with GitHub and created:
+- A secure, automated Terraform pipeline
+- GitHub → CodePipeline → CodeBuild → AWS infra
+
+---
+
+
+---
+
