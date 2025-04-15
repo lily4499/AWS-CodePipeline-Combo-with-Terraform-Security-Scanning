@@ -1,4 +1,5 @@
 # AWS-CodePipeline-Combo-with-Terraform-Security-Scanning
+![image](https://github.com/user-attachments/assets/92acd0e2-8682-4700-8a70-2a33729c6a2f)
 
 
 Here’s a **comprehensive project walkthrough** for setting up a **secure, validated CI/CD pipeline** using **AWS CodePipeline** with **Terraform**, integrating security scans like **TFLint**, **Checkov**, and **TFSec**, and deploying validated infrastructure via automated pipelines.
@@ -6,7 +7,7 @@ Here’s a **comprehensive project walkthrough** for setting up a **secure, vali
 ---
 
 ```markdown
-# 🚀 AWS CodePipeline Combo with Terraform + Security Scanning
+#  AWS CodePipeline Combo with Terraform + Security Scanning
 
 This project demonstrates how to automate infrastructure deployments using:
 - AWS CodePipeline
@@ -17,7 +18,7 @@ This project demonstrates how to automate infrastructure deployments using:
 
 ---
 
-## ✅ Prerequisites
+##  Prerequisites
 
 - AWS CLI & IAM permissions
 - Terraform installed
@@ -217,7 +218,7 @@ Expected: **Pipeline passes**, and Terraform deploys the bucket.
 
 ---
 
-## ✅ You Can Now Reuse This Pipeline to Deploy
+##  You Can Now Reuse This Pipeline to Deploy
 
 - ECS or EKS Clusters
 - S3 Buckets, IAM roles
